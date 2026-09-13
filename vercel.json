@@ -1,0 +1,42 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "devCommand": "npm run dev",
+  "outputDirectory": ".next",
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 10
+    }
+  },
+  "env": {
+    "DATABASE_URL": "file:./prisma/dev.db",
+    "ADMIN_GATE_PATH": "/gate-a7k3f9",
+    "SUPER_GATE_PATH": "/root-m9x2p4"
+  },
+  "rewrites": [
+    {
+      "source": "/gate-a7k3f9",
+      "destination": "/secret/admin-gate"
+    },
+    {
+      "source": "/root-m9x2p4",
+      "destination": "/secret/super-gate"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
+}

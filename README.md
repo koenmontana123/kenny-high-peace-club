@@ -1,5 +1,15 @@
 # Kenny High Peace Club 🕊️
 
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
+[![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
+[![Vercel](https://img.shields.io/badge/Deploy-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-teal?style=for-the-badge)](./LICENSE)
+[![Live Preview](https://img.shields.io/badge/Live-Preview-0d9488?style=for-the-badge&logo=googlechrome)](http://localhost:3000/login)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/koenmontana123/kenny-high-peace-club&env=DATABASE_URL,ADMIN_GATE_PATH,SUPER_GATE_PATH&envDescription=Required%20env%20vars%20for%20Kenny%20High%20Peace%20Club&envLink=https://github.com/koenmontana123/kenny-high-peace-club/blob/main/.env.example)
+
 **Governance, payments, and communication platform for a real school peace club in Kenya.**
 
 > Talk it out. Walk it out. Live it out.
