@@ -1,0 +1,24 @@
+export type SuggestionState =
+  | 'SUGGESTED'
+  | 'IN_DISCUSSION'
+  | 'AMENDMENTS_PENDING'
+  | 'PENDING_PATRON_SIGNOFF'
+  | 'PENDING_TREASURER'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'WITHDRAWN'
+
+export const SUGGESTION_FLOW: Record<SuggestionState, SuggestionState[]> = {
+  SUGGESTED: ['IN_DISCUSSION', 'WITHDRAWN'],
+  IN_DISCUSSION: ['AMENDMENTS_PENDING', 'PENDING_PATRON_SIGNOFF', 'REJECTED'],
+  AMENDMENTS_PENDING: ['IN_DISCUSSION', 'PENDING_PATRON_SIGNOFF'],
+  PENDING_PATRON_SIGNOFF: ['PENDING_TREASURER', 'REJECTED', 'AMENDMENTS_PENDING'],
+  PENDING_TREASURER: ['APPROVED', 'REJECTED', 'AMENDMENTS_PENDING'],
+  APPROVED: [],
+  REJECTED: [],
+  WITHDRAWN: []
+}
+
+export function canTransition(from: SuggestionState, to: SuggestionState): boolean {
+  return SUGGESTION_FLOW[from]?.includes(to) || false
+}

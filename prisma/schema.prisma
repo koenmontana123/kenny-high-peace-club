@@ -1,0 +1,592 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum PublicRole {
+  SUPER_ADMIN
+  ADMIN
+  PATRON
+  CHAIRPERSON
+  CEO
+  VICE_CHAIRPERSON
+  TREASURER
+  CHIEF_ORGANISER
+  MEDIATOR
+  MEMBER
+}
+
+enum UserStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  REVOKED
+  GRADUATED
+  TRANSFERRED
+  QUIT
+}
+
+enum EventType {
+  MEETING
+  TRAINING
+  COMMUNITY
+  SOCIAL
+  FUNDRAISER
+}
+
+enum EventStatus {
+  PENDING_APPROVAL
+  DEADLOCKED
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+  SUGGESTED
+  IN_DISCUSSION
+  AMENDMENTS_PENDING
+  PENDING_PATRON_SIGNOFF
+  PENDING_TREASURER
+  WITHDRAWN
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+  WAIVED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT_APOLOGY
+  ABSENT_NO_APOLOGY
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum MediationStatus {
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED
+}
+
+enum ResourceCategory {
+  GUIDE
+  VIDEO
+  TEMPLATE
+  DOCUMENT
+}
+
+enum ChatRoomType {
+  GLOBAL
+  GROUP
+  DM
+}
+
+enum FeeChangeStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum RevocationReason {
+  TEACHER_TRANSFER
+  PATRON_CHANGE
+  STUDENT_TRANSFER
+  STUDENT_QUIT
+  CORRUPT_LEADER
+  GRADUATED
+  NOT_REELECTED
+  OTHER
+}
+
+enum RevocationStatus {
+  RECEIVED
+  UNDER_REVIEW
+  EXECUTED
+  DECLINED
+}
+
+enum SuggestionVoteType {
+  APPROVE_AS_IS
+  APPROVE_WITH_AMENDMENTS
+  REJECT
+}
+
+enum AuditActionType {
+  ADMIN_GATE_LOGIN
+  SUPER_GATE_LOGIN
+  MODE_SWITCH_ADMIN
+  MODE_SWITCH_MEMBER
+  MODE_SWITCH_SUPER
+  APPOINT_ADMIN
+  DEACTIVATE_ADMIN
+  RESET_ADMIN_PASSWORD
+  REVOKE_ACCESS
+  HANDOVER_TASKS
+  CLEAR_PAYMENT
+  RESOLVE_COMPLIANCE
+  REGISTER_MEMBER
+  ISSUE_CREDENTIALS
+  MARK_REGISTRATION_PAID
+  FEE_CHANGE_REQUESTED
+  FEE_CHANGE_APPROVED
+  FEE_CHANGE_REJECTED
+  EVENT_PROPOSED
+  EVENT_APPROVED
+  EVENT_REJECTED
+  DEADLOCK_RESOLVED
+  MESSAGE_DELETED
+  IMPERSONATE_USER
+  LOGIN
+  LOGOUT
+  PASSWORD_CHANGED
+  ELECTION_CREATED
+  VOTE_CAST
+  MEDIATION_LOGGED
+  TASK_CREATED
+  TASK_COMPLETED
+  ATTENDANCE_MARKED
+  EVENT_PAYMENT_MARKED
+  SUGGESTION_CREATED
+  SUGGESTION_VOTE
+  REVOCATION_REQUESTED
+  CHAT_MESSAGE_SENT
+}
+
+enum AdminDiscountType {
+  EARNED
+  SPENT
+}
+
+enum ElectionStatus {
+  NOMINATION
+  CAMPAIGN
+  VOTING
+  COMPLETED
+  CANCELLED
+}
+
+// Models
+model User {
+  id                  String     @id @default(cuid())
+  memberId            String     @unique // e.g. KHP-2026-007
+  fullName            String
+  email               String     @unique
+  passwordHash        String
+  publicRole          PublicRole @default(MEMBER)
+  status              UserStatus @default(ACTIVE)
+  grade               String? // e.g. 9th, 10th, 11th, 12th, null for teacher
+  note                String?
+  mustChangePassword  Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  // Relations
+  adminIdentity       AdminIdentity?
+  sessions            Session[]
+  registrationPayments RegistrationPayment[] @relation("UserPayments")
+  registrationPaymentsAsTreasurer RegistrationPayment[] @relation("TreasurerPayments")
+  proposedEvents      Event[]    @relation("ProposedEvents")
+  suggestedEvents     Event[]    @relation("SuggestedEvents")
+  eventApprovals      EventApproval[]
+  suggestionVotes     EventSuggestionVote[]
+  eventComments       EventComment[]
+  eventPayments       EventPayment[]
+  eventPaymentsMarked EventPayment[] @relation("MarkedPayments")
+  attendances         Attendance[]
+  attendancesMarked   Attendance[] @relation("MarkedAttendances")
+  tasksAssigned       Task[]     @relation("AssignedTasks")
+  tasksCreated        Task[]     @relation("CreatedTasks")
+  mediations          Mediation[]
+  resources           Resource[]
+  chatRoomMembers     ChatRoomMember[]
+  chatMessages        ChatMessage[]
+  messageReactions    MessageReaction[]
+  revocationRequests  RevocationRequest[] @relation("RequestedRevocations")
+  revocationTargets   RevocationRequest[] @relation("TargetRevocations")
+  roleHandoversFrom   RoleHandover[] @relation("HandoverFrom")
+  roleHandoversTo     RoleHandover[] @relation("HandoverTo")
+  auditLogs           AuditLog[] @relation("ActorLogs")
+  auditTargets        AuditLog[] @relation("TargetLogs")
+  impersonations      ImpersonationLog[] @relation("Impersonator")
+  impersonated        ImpersonationLog[] @relation("Impersonated")
+  nominations         Nomination[] @relation("Nominee")
+  nominationsMade     Nomination[] @relation("Nominator")
+  nominationsSeconded Nomination[] @relation("Seconder")
+  votes               Vote[]
+  feeChangesRequested FeeChange[] @relation("FeeChangeRequester")
+  activityPoints      ActivityLedger[]
+}
+
+model AdminIdentity {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isActive     Boolean  @default(true)
+  realName     String // duplicate of User.fullName for quick access but also hidden
+  grade        String?
+  discountRate Int      @default(50) // percent
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  discountLedger AdminDiscountLedger[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipAddress String?
+}
+
+model ClubSettings {
+  id                String   @id @default("default")
+  registrationFee   Int      @default(200)
+  currency          String   @default("KES")
+  adminDiscountRate Int      @default(50)
+  maxActiveAdmins   Int      @default(3)
+  clubName          String   @default("Kenny High Peace Club")
+  tagline           String   @default("Talk it out. Walk it out. Live it out.")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model FeeChange {
+  id             String          @id @default(cuid())
+  oldFee         Int
+  newFee         Int
+  requestedById  String
+  requestedBy    User            @relation("FeeChangeRequester", fields: [requestedById], references: [id])
+  status         FeeChangeStatus @default(PENDING_APPROVAL)
+  chairApproved  Boolean         @default(false)
+  ceoApproved    Boolean         @default(false)
+  chairApproverId String?
+  ceoApproverId   String?
+  rejectionReason String?
+  createdAt      DateTime        @default(now())
+  approvedAt     DateTime?
+}
+
+model RegistrationPayment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("UserPayments", fields: [userId], references: [id])
+  amount      Int
+  treasurerId String
+  treasurer   User     @relation("TreasurerPayments", fields: [treasurerId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Event {
+  id               String      @id @default(cuid())
+  title            String
+  description      String
+  date             DateTime
+  location         String
+  type             EventType
+  amountPerMember  Int         @default(0)
+  status           EventStatus @default(PENDING_APPROVAL)
+  origin           String      @default("PROPOSED") // PROPOSED or SUGGESTED
+  proposedById     String?
+  proposedBy       User?       @relation("ProposedEvents", fields: [proposedById], references: [id])
+  suggestedById    String?
+  suggestedBy      User?       @relation("SuggestedEvents", fields: [suggestedById], references: [id])
+  rejectionReason  String?
+  patronDecision   String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  approvals        EventApproval[]
+  suggestionVotes  EventSuggestionVote[]
+  comments         EventComment[]
+  payments         EventPayment[]
+  attendances      Attendance[]
+  chatRoomId       String? // auto-created group for suggestion discussion
+  chatRoom         ChatRoom? @relation(fields: [chatRoomId], references: [id])
+}
+
+model EventApproval {
+  id         String   @id @default(cuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  approverId String
+  approver   User     @relation(fields: [approverId], references: [id])
+  role       PublicRole
+  decision   String // APPROVED, REJECTED, PENDING
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@unique([eventId, approverId, role])
+}
+
+model EventSuggestionVote {
+  id        String             @id @default(cuid())
+  eventId   String
+  event     Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  voterId   String
+  voter     User               @relation(fields: [voterId], references: [id])
+  vote      SuggestionVoteType
+  comment   String?
+  createdAt DateTime           @default(now())
+
+  @@unique([eventId, voterId])
+}
+
+model EventComment {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  parentId  String?
+  parent    EventComment? @relation("CommentThread", fields: [parentId], references: [id])
+  replies   EventComment[] @relation("CommentThread")
+  createdAt DateTime @default(now())
+}
+
+model EventPayment {
+  id           String        @id @default(cuid())
+  eventId      String
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  amount       Int
+  status       PaymentStatus @default(UNPAID)
+  waiverReason String?
+  markedById   String?
+  markedBy     User?         @relation("MarkedPayments", fields: [markedById], references: [id])
+  markedAt     DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([eventId, userId])
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  eventId    String
+  event      Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User             @relation(fields: [userId], references: [id])
+  status     AttendanceStatus
+  note       String?
+  markedById String?
+  markedBy   User?            @relation("MarkedAttendances", fields: [markedById], references: [id])
+  markedAt   DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([eventId, userId])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String
+  dueDate     DateTime?
+  status      TaskStatus @default(TODO)
+  assigneeId  String?
+  assignee    User?      @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  creatorId   String
+  creator     User       @relation("CreatedTasks", fields: [creatorId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Mediation {
+  id          String          @id @default(cuid())
+  date        DateTime        @default(now())
+  partyA      String          @default("Student A")
+  partyB      String          @default("Student B")
+  issue       String
+  resolution  String?
+  status      MediationStatus @default(IN_PROGRESS)
+  confidential Boolean        @default(false)
+  mediatorId  String
+  mediator    User            @relation(fields: [mediatorId], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Resource {
+  id          String           @id @default(cuid())
+  title       String
+  description String
+  category    ResourceCategory
+  url         String
+  uploaderId  String
+  uploader    User             @relation(fields: [uploaderId], references: [id])
+  createdAt   DateTime         @default(now())
+}
+
+model ChatRoom {
+  id          String       @id @default(cuid())
+  name        String
+  type        ChatRoomType
+  createdById String?
+  createdAt   DateTime     @default(now())
+
+  members     ChatRoomMember[]
+  messages    ChatMessage[]
+  events      Event[]
+}
+
+model ChatRoomMember {
+  id           String   @id @default(cuid())
+  roomId       String
+  room         ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isModerator  Boolean  @default(false)
+  isMuted      Boolean  @default(false)
+  isArchived   Boolean  @default(false)
+  joinedAt     DateTime @default(now())
+
+  @@unique([roomId, userId])
+}
+
+model ChatMessage {
+  id        String    @id @default(cuid())
+  roomId    String
+  room      ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User      @relation(fields: [senderId], references: [id])
+  content   String
+  replyToId String?
+  replyTo   ChatMessage? @relation("MessageReply", fields: [replyToId], references: [id])
+  replies   ChatMessage[] @relation("MessageReply")
+  deletedAt DateTime?
+  editedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  reactions MessageReaction[]
+}
+
+model MessageReaction {
+  id        String      @id @default(cuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  emoji     String
+  createdAt DateTime    @default(now())
+
+  @@unique([messageId, userId, emoji])
+}
+
+model RevocationRequest {
+  id             String            @id @default(cuid())
+  targetUserId   String
+  targetUser     User              @relation("TargetRevocations", fields: [targetUserId], references: [id])
+  requestedById  String
+  requestedBy    User              @relation("RequestedRevocations", fields: [requestedById], references: [id])
+  reason         RevocationReason
+  details        String?
+  status         RevocationStatus  @default(RECEIVED)
+  responseNote   String?
+  createdAt      DateTime          @default(now())
+  resolvedAt     DateTime?
+}
+
+model RoleHandover {
+  id         String   @id @default(cuid())
+  fromUserId String
+  fromUser   User     @relation("HandoverFrom", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User     @relation("HandoverTo", fields: [toUserId], references: [id])
+  reason     String
+  details    String? // JSON
+  createdAt  DateTime @default(now())
+}
+
+model AdminDiscountLedger {
+  id               String            @id @default(cuid())
+  adminIdentityId  String
+  adminIdentity    AdminIdentity     @relation(fields: [adminIdentityId], references: [id], onDelete: Cascade)
+  type             AdminDiscountType
+  amount           Int
+  description      String?
+  createdAt        DateTime          @default(now())
+}
+
+model AuditLog {
+  id         String          @id @default(cuid())
+  actionType AuditActionType
+  actorId    String?
+  actor      User?           @relation("ActorLogs", fields: [actorId], references: [id])
+  targetId   String?
+  target     User?           @relation("TargetLogs", fields: [targetId], references: [id])
+  details    String? // JSON string
+  ipAddress  String?
+  createdAt  DateTime        @default(now())
+}
+
+model ImpersonationLog {
+  id                 String   @id @default(cuid())
+  superAdminId       String
+  superAdmin         User     @relation("Impersonator", fields: [superAdminId], references: [id])
+  impersonatedUserId String
+  impersonatedUser   User     @relation("Impersonated", fields: [impersonatedUserId], references: [id])
+  createdAt          DateTime @default(now())
+}
+
+model Election {
+  id        String         @id @default(cuid())
+  title     String
+  type      String         @default("CHAIRPERSON")
+  status    ElectionStatus @default(NOMINATION)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  nominations Nomination[]
+  votes       Vote[]
+}
+
+model Nomination {
+  id          String   @id @default(cuid())
+  electionId  String
+  election    Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  nomineeId   String
+  nominee     User     @relation("Nominee", fields: [nomineeId], references: [id])
+  nominatorId String
+  nominator   User     @relation("Nominator", fields: [nominatorId], references: [id])
+  seconderId  String?
+  seconder    User?    @relation("Seconder", fields: [seconderId], references: [id])
+  accepted    Boolean  @default(false)
+  statement   String?
+  createdAt   DateTime @default(now())
+}
+
+model Vote {
+  id          String   @id @default(cuid())
+  electionId  String
+  election    Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  voterId     String
+  voter       User     @relation(fields: [voterId], references: [id])
+  candidateId String
+  createdAt   DateTime @default(now())
+
+  @@unique([electionId, voterId])
+}
+
+model ActivityLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points    Int
+  reason    String
+  eventId   String?
+  createdAt DateTime @default(now())
+}
